@@ -1,0 +1,15 @@
+path=/dev/tty.BLTH
+manufacturer=undefined
+serialNumber=undefined
+pnpId=undefined
+locationId=undefined
+vendorId=undefined
+productId=undefined
+
+path=/dev/tty.Bluetooth-Incoming-Port
+manufacturer=undefined
+serialNumber=undefined
+pnpId=undefined
+locationId=undefined
+vendorId=undefined
+productId=undefined

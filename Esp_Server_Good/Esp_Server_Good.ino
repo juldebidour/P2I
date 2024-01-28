@@ -8,7 +8,7 @@ ESP8266WebServer server(80);
 
 void handleRoot() {
   String content = "<html><body>";
-  content += "<h1>Welcome to ESP8266 Server</h1>";
+  content += "<h1>Bienvenu au sein de AIRPURE_STATION </h1>";
   content += "<p>Temperature: " + String(getTemperature()) + " &deg;C</p>";
   content += "<p>Pressure: " + String(getPressure()) + " Pa</p>";
   content += "<p>Particle Count: " + String(getParticleCount()) + "</p>";
