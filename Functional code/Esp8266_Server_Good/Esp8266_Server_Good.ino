@@ -396,9 +396,9 @@ void handleCodes() {
   content += "<li class=\"w3-padding-16\"> Creation of dynamic web pages with HTML, CSS, and JavaScript for data visualization</li>\n";
   content += "</ul>\n";
   content += "<h2>Full Code :</h2>\n";
-  // Ajoutez ici le code complet
+  // Insert the full code here
   content += "<pre><code>";
-  // Ajoutez ici le code complet
+  // Insert the full code here
   content += "</code></pre>";
   content += "</div></div></div></div>\n";
   content += "<footer style=\"background-color: #1e3d59; padding: 20px; text-align: center; color: white;\">\n";
