@@ -3,21 +3,43 @@
 #include <ESP8266WebServer.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
+#include <MQ135.h>
 #include <Adafruit_BME280.h>
+#include <NovaSDS011.h>
 
 // Define your WiFi credentials
 const char *ssid = "Airpure Station";
 const char *password = "password";
 
+// Define pin for the buzzer
+#define BUZZER_PIN 8 // Use any available GPIO pin
+
+#define SDS_PIN_RX 2
+#define SDS_PIN_TX 3
+
+NovaSDS011 sds011;
+
 #define SEALEVELPRESSURE_HPA (1013.25)
 
 Adafruit_BME280 bme; // I2C
-//Adafruit_BME280 bme(BME_CS); // hardware SPI
-//Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI
+// Adafruit_BME280 bme(BME_CS); // hardware SPI
+// Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI
+
+#define PIN_MQ135 A0 // MQ135 Analog Input Pin
+
+MQ135 mq135_sensor(PIN_MQ135);
+
+float temperature, humidity, seaLevel; // Temp and Humid floats, will be measured by the DHT
 
 unsigned long delayTime;
+
+int capteur_lum = 1; // capteur branché sur le port 0
+int analog_lum; // valeur analogique envoyé par le capteur
+
 // Create an ESP8266WebServer object
 ESP8266WebServer server(80);
+
+String username = "one";
 
 void handleRoot() {
   String content = "<html>\n";
@@ -88,6 +110,8 @@ void handleRoot() {
   content += "<a href=\"/data\" class=\"w3-bar-item w3-button\">Data</a>\n";
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:32px 16px\">\n";
   content += "<h1 class=\"w3-margin w3-xxlarge\">The Airpure Project</h1>\n";
@@ -110,11 +134,120 @@ void handleRoot() {
   server.send(200, "text/html", content);
 }
 
+void handleLogin() {
+
+  String content = "<html>\n";
+  content += "<head>\n";
+  content += "<title>The Airpure Project</title>\n";
+  content += "<meta charset=\"UTF-8\">\n";
+  content += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
+  content += "<style>\n";
+  content += "body {\n";
+  content += "  font-family: Arial, sans-serif;\n";
+  content += "  margin: 0;\n";
+  content += "  padding: 0;\n";
+  content += "}\n";
+  content += ".w3-top {\n";
+  content += "  position: sticky;\n";
+  content += "  top: 0;\n";
+  content += "  z-index: 9999;\n";
+  content += "}\n";
+  content += ".w3-bar {\n";
+  content += "  overflow: hidden;\n";
+  content += "  background-color: #1e3d59;\n";
+  content += "}\n";
+  content += ".w3-bar a {\n";
+  content += "  float: left;\n";
+  content += "  display: block;\n";
+  content += "  color: white;\n";
+  content += "  text-align: center;\n";
+  content += "  padding: 14px 16px;\n";
+  content += "  text-decoration: none;\n";
+  content += "}\n";
+  content += ".w3-bar a:hover {\n";
+  content += "  background-color: #ddd;\n";
+  content += "  color: black;\n";
+  content += "}\n";
+  content += ".w3-bar a.active {\n";
+  content += "  background-color: #f5f0e1;\n";
+  content += "  color: black;\n";
+  content += "}\n";
+  content += ".footer {\n";
+  content += "  background-color: #1e3d59;\n";
+  content += "  padding: 20px;\n";
+  content += "  text-align: center;\n";
+  content += "  color: white;\n";
+  content += "}\n";
+  content += ".content {\n";
+  content += "  padding: 20px;\n";
+  content += "}\n";
+  content += ".more-info {\n";
+  content += "  display: none;\n";
+  content += "}\n";
+  content += "</style>\n";
+  content += "<script>\n";
+  content += "function showMoreInfo() {\n";
+  content += "  var x = document.getElementById('moreInfo');\n";
+  content += "  if (x.style.display === 'none') {\n";
+  content += "    x.style.display = 'block';\n";
+  content += "  } else {\n";
+  content += "    x.style.display = 'none';\n";
+  content += "  }\n";
+  content += "}\n";
+  content += "</script>\n";
+  content += "</head>\n";
+  content += "<body>\n";
+  content += "<div class=\"w3-top\">\n";
+  content += "<div class=\"w3-bar w3-card\">\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button active\">The Airpure Project</a>\n";
+  content += "<a href=\"/weather\" class=\"w3-bar-item w3-button\">Weather Station</a>\n";
+  content += "<a href=\"/data\" class=\"w3-bar-item w3-button\">Data</a>\n";
+  content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button\">Specifications</a>\n";
+  content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
+  content += "</div>\n";
+  content += "<div class=\"login-container\">\n";
+  content += "<h2>Login page</h2>\n";
+  content += "<form class=\"login-form\" action=\"/login\" method=\"POST\">\n";
+  content += "<label for=\"username\">Username :</label><br>\n";
+  content += "<input type=\"text\" id=\"username\" name=\"username\"><br>\n";
+  content += "<label for=\"password\">Password :</label><br>\n";
+  content += "<input type=\"password\" id=\"password\" name=\"password\"><br><br>\n";
+  content += "<a href=\"/\" class=\"w3-button w3-block w3-teal\">Login</a>\n";
+  content += "</form>\n";
+  content += "</div>\n";
+  content += "</body>\n";
+  content += "</html>\n";
+  
+  // Send the HTML response
+    server.send(200, "text/html", content);
+} 
+
+
 void handleWeather() {
+
+  float p25, p10;
+
   // Read sensor data
   float temperature = bme.readTemperature();
   float humidity = bme.readHumidity();
   float pressure = bme.readPressure() / 100.0F; // Convert pressure to hPa
+  float altitude = bme.readAltitude(seaLevel);
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+  }
+
+  float rzero = mq135_sensor.getRZero();
+  float correctedRZero = mq135_sensor.getCorrectedRZero(temperature, humidity);
+  float resistance = mq135_sensor.getResistance();
+  float ppm = mq135_sensor.getPPM();
+  float correctedPPM = mq135_sensor.getCorrectedPPM(temperature, humidity);
+
+  analog_lum = analogRead(capteur_lum);
 
   String content = "<html>\n";
   content += "<head>\n";
@@ -174,11 +307,35 @@ void handleWeather() {
   content += "<a href=\"/data\" class=\"w3-bar-item w3-button\">Data</a>\n";
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:32px 16px\">\n";
   content += "<h1 class=\"w3-margin w3-xxlarge\">The Airpure Weather Station</h1>\n";
-  content += "<p class=\"w3-large\">Current weather conditions :</p>\n";
+  content += "<h2 class=\"w3-large\">Current weather conditions in the air</h2>\n";
+  content += "<ul class=\"w3-ul w3-card-4\">\n";
+  content += "<li class=\"w3-padding-16\"> \nQuantity of carbon dioxide (part per million) from the MQ-135 sensor :</li>\n\n";
+  content += "<br><table border=\"<1\">\n";
+  content += "<tr><td>Rzero</td><td>Resistance</td><td>PPM</td><td>Corrected PPM</td></tr>\n";
+  content += "<tr><td>" + String(rzero) + "</td><td>" + String(resistance) + "</td><td>" + String(ppm) + "</td><td>" + String(correctedPPM) + "</td></tr>\n";
+  content += "</table>\n\n";
+  content += "<br><li class=\"w3-padding-16\"> Quantity of microparticles (lenght 2,5 micro-meters and 10 2,5 micro-meters) from the SDS-011 sensor :</li>\n\n";
+  content += "<br><table border=\"1\">\n";
+  content += "<tr><td>Lenght (micro-meters)</td><td>2,5 10 micro-meters</td><td>10 micro-meters</td></tr>\n";
+  content += "<tr><td>Value</td><td>" + String(p25) + "</td><td>" + String(p10) + "</td></tr>\n";
+  content += "</table>\n\n";
+  content += "<br><li class=\"w3-padding-16\"> Level of luminosity from the photoresistor (LDR) :</li>\n\n";
+  content += "<br><table border=\"1\">\n";
+  content += "<tr><td>Port of the sensor</td><td>Luminosity (lux)</td></tr>\n";
+  content += "<tr><td>" + String(capteur_lum) + "</td><td>" + String(analog_lum) + "</td></tr>\n";
+  content += "</table>\n\n";
+  content += "<br><li class=\"w3-padding-16\"> Level of humidity, pressure, temperature and altitude from the BME-280</li>\n\n";
+  content += "<br><table border=\"1\">\n";
+  content += "<tr><td>Humidity</td><td>Pressure</td><td>temperature</td><td>altitude</td></tr>\n";
+  content += "<tr><td>" + String(humidity) + "</td><td>" + String(pressure) + "</td><td>" + String(temperature) + "</td><td>" + String(altitude) + "</td></tr>\n";
+  content += "</table>\n\n";
+  content += "</ul>\n";
   content += "</header>\n";
   content += "<div class=\"weather-container\">\n";
   content += "<div class=\"weather-info\">\n";
@@ -192,29 +349,7 @@ void handleWeather() {
   content += "    labels: ['Temperature', 'Humidity', 'Pressure'],\n";
   content += "    datasets: [{\n";
   content += "      label: 'Real-time Data',\n";
-  content += "      data: [" + String(temperature) + ", " + String(humidity) + ", " + String(pressure) + "],\n";
-  content += "      backgroundColor: [\n";
-  content += "        'rgba(255, 99, 132, 0.2)',\n";
-  content += "        'rgba(54, 162, 235, 0.2)',\n";
-  content += "        'rgba(255, 206, 86, 0.2)'\n";
-  content += "      ],\n";
-  content += "      borderColor: [\n";
-  content += "        'rgba(255, 99, 132, 1)',\n";
-  content += "        'rgba(54, 162, 235, 1)',\n";
-  content += "        'rgba(255, 206, 86, 1)'\n";
-  content += "      ],\n";
-  content += "      borderWidth: 1\n";
-  content += "    }]\n";
-  content += "  },\n";
-  content += "  options: {\n";
-  content += "    scales: {\n";
-  content += "      y: {\n";
-  content += "        beginAtZero: true\n";
-  content += "      }\n";
-  content += "    }\n";
-  content += "  }\n";
-  content += "});\n";
-  content += "</script>\n";
+  // content += "      data: [" + String(temperature) + ", " + String(humidity) + ", " + String(pressure) + "],\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<div class=\"footer\">\n";
@@ -249,6 +384,8 @@ void handleData() {
   content += "<a href=\"/data\" class=\"w3-bar-item w3-button active\">Data</a>\n";
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:128px 16px\">\n";
@@ -290,6 +427,8 @@ void handleSpecifications() {
   content += "<a href=\"/data\" class=\"w3-bar-item w3-button\">Data</a>\n";
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button active\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button w3-right-align\" style=\"color: white;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/login\" class=\"w3-bar-item w3-button w3-right-align\">Login</a>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:128px 16px\">\n";
@@ -378,6 +517,8 @@ void handleCodes() {
   content += "<a href=\"/data\" class=\"w3-bar-item w3-button\">Data</a>\n";
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button active\" onclick=\"toggleCode()\">Codes</a>\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:32px 16px\">\n";
@@ -413,14 +554,14 @@ void handleCodes() {
   server.send(200, "text/html", content);
 }
 
-
-
 void setup() {
   Serial.begin(115200);
 
   // Connecter au WiFi
   WiFi.softAP(ssid, password);
   Serial.println("WiFi AP Started");
+
+  sds011.begin(SDS_PIN_RX, SDS_PIN_TX);
 
   // Initialize BME280 sensor
   if (!bme.begin(0x76)) {
@@ -433,6 +574,7 @@ void setup() {
   server.on("/data", HTTP_GET, handleData);
   server.on("/specifications", HTTP_GET, handleSpecifications);
   server.on("/codes", HTTP_GET, handleCodes);
+  server.on("/login", HTTP_GET, handleLogin);
 
   // Démarrer le serveur
   server.begin();
