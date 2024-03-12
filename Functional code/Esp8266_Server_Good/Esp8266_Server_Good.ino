@@ -4,8 +4,9 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <MQ135.h>
-#include <Adafruit_BME280.h>
+#xinclude <Adafruit_BME280.h>
 #include <NovaSDS011.h>
+#include <RTClib.h>
 
 // Define your WiFi credentials
 const char *ssid = "Airpure Station";
@@ -33,13 +34,20 @@ float temperature, humidity, seaLevel; // Temp and Humid floats, will be measure
 
 unsigned long delayTime;
 
-int capteur_lum = 1; // capteur branché sur le port 0
+int capteur_lum = 0; // capteur branché sur le port 0
 int analog_lum; // valeur analogique envoyé par le capteur
+
+int readD1;
+int readD2;
+int Pin_D1 = 4;
+int Pin_D2 = 5;
 
 // Create an ESP8266WebServer object
 ESP8266WebServer server(80);
 
 String username = "one";
+
+RTC_DS3231 rtc;
 
 void handleRoot() {
   String content = "<html>\n";
@@ -101,6 +109,20 @@ void handleRoot() {
   content += "  }\n";
   content += "}\n";
   content += "</script>\n";
+  // Ajouter la fonction pour mettre à jour l'heure
+  content += "function updateTime() {\n";
+  content += "  var currentTime = new Date();\n";
+  content += "  var hours = currentTime.getHours();\n";
+  content += "  var minutes = currentTime.getMinutes();\n";
+  content += "  var timeString = hours + ':' + (minutes < 10 ? '0' : '') + minutes;\n";
+  content += "  document.getElementById('current-time').innerText = timeString;\n";
+  content += "  setTimeout(updateTime, 1000); // Mettre à jour chaque seconde\n";
+  content += "}\n";
+  // Appeler la fonction pour mettre à jour l'heure au chargement de la page
+  content += "window.onload = function() {\n";
+  content += "  updateTime();\n";
+  content += "}\n";
+  content += "</script>\n";
   content += "</head>\n";
   content += "<body>\n";
   content += "<div class=\"w3-top\">\n";
@@ -111,6 +133,8 @@ void handleRoot() {
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
   content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  // Ajouter la balise span pour afficher l'heure
+  content += "<span id=\"current-time\" class=\"w3-bar-item\" style=\"color: white; float: right; padding: 14px 16px;\"></span>\n";
   content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:32px 16px\">\n";
@@ -135,7 +159,6 @@ void handleRoot() {
 }
 
 void handleLogin() {
-
   String content = "<html>\n";
   content += "<head>\n";
   content += "<title>The Airpure Project</title>\n";
@@ -207,11 +230,25 @@ void handleLogin() {
   content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
   content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   content += "</div>\n";
+  content += "<script>\n";
+  content += "function updateUsername() {\n";
+  content += "  var usernameInput = document.getElementById('username');\n";
+  content += "  var newUsername = usernameInput.value;\n";
+  content += "  var welcomeMessage = document.getElementById('welcomeMessage');\n";
+  content += "  welcomeMessage.textContent = 'Welcome to our dear user ' + newUsername + ' !';\n";
+  content += "}\n";
+  content += "</script>\n";
+  content += "</head>\n";
+  content += "<body>\n";
+  content += "<div class=\"w3-top\">\n";
+  content += "<div class=\"w3-bar w3-card\">\n";
+  // Navigation bar...
+  content += "</div>\n";
   content += "<div class=\"login-container\">\n";
   content += "<h2>Login page</h2>\n";
   content += "<form class=\"login-form\" action=\"/login\" method=\"POST\">\n";
   content += "<label for=\"username\">Username :</label><br>\n";
-  content += "<input type=\"text\" id=\"username\" name=\"username\"><br>\n";
+  content += "<input type=\"text\" id=\"username\" name=\"username\" onchange=\"updateUsername()\"><br>\n"; 
   content += "<label for=\"password\">Password :</label><br>\n";
   content += "<input type=\"password\" id=\"password\" name=\"password\"><br><br>\n";
   content += "<a href=\"/\" class=\"w3-button w3-block w3-teal\">Login</a>\n";
@@ -219,10 +256,19 @@ void handleLogin() {
   content += "</div>\n";
   content += "</body>\n";
   content += "</html>\n";
+  String footer = "<footer style=\"background-color: #1e3d59; padding: 20px; text-align: center;\">"
+                  "<p><span style=\"color: white;\">Visit my Github page for more informations :</span></p>"
+                  "<a href=\"https://github.com/juldebidour/P2I\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to my Github page</button></a>"
+                  "<p><span style=\"color: white;\">Visit the ENSC website for more informations :</span></p>"
+                  "<a href=\"https://ensc.bordeaux-inp.fr/fr\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to the ENSC Website</button></a>"
+                  "</footer>\n";
+
+  content += footer;
   
   // Send the HTML response
-    server.send(200, "text/html", content);
-} 
+  server.send(200, "text/html", content);
+}
+
 
 
 void handleWeather() {
@@ -241,13 +287,18 @@ void handleWeather() {
     return;
   }
 
+  //for first sensor                    
+  analog_lum = 10*readD1;       //Read Analog value of first sensor  
+ 
+  digitalWrite(Pin_D1, LOW); 
+  digitalWrite(Pin_D2, HIGH);     //Turn D2 On
+  delay(100);  
   float rzero = mq135_sensor.getRZero();
   float correctedRZero = mq135_sensor.getCorrectedRZero(temperature, humidity);
   float resistance = mq135_sensor.getResistance();
-  float ppm = mq135_sensor.getPPM();
-  float correctedPPM = mq135_sensor.getCorrectedPPM(temperature, humidity);
-
-  analog_lum = analogRead(capteur_lum);
+  float ppm = 10*mq135_sensor.getPPM();
+  float correctedPPM = 10*mq135_sensor.getCorrectedPPM(temperature, humidity);          
+  delay(100); 
 
   String content = "<html>\n";
   content += "<head>\n";
@@ -318,7 +369,7 @@ void handleWeather() {
   content += "<li class=\"w3-padding-16\"> \nQuantity of carbon dioxide (part per million) from the MQ-135 sensor :</li>\n\n";
   content += "<br><table border=\"<1\">\n";
   content += "<tr><td>Rzero</td><td>Resistance</td><td>PPM</td><td>Corrected PPM</td></tr>\n";
-  content += "<tr><td>" + String(rzero) + "</td><td>" + String(resistance) + "</td><td>" + String(ppm) + "</td><td>" + String(correctedPPM) + "</td></tr>\n";
+  content += "<tr><td>" + String(rzero) + "</td><td>" + String(resistance) + "</td><td>" + String(ppm) + "</td><td>" + String(correctedPPM/3) + "</td></tr>\n";
   content += "</table>\n\n";
   content += "<br><li class=\"w3-padding-16\"> Quantity of microparticles (lenght 2,5 micro-meters and 10 2,5 micro-meters) from the SDS-011 sensor :</li>\n\n";
   content += "<br><table border=\"1\">\n";
@@ -352,14 +403,16 @@ void handleWeather() {
   // content += "      data: [" + String(temperature) + ", " + String(humidity) + ", " + String(pressure) + "],\n";
   content += "</div>\n";
   content += "</div>\n";
-  content += "<div class=\"footer\">\n";
-  content += "<p>Visit my Github page for more informations :</p>\n";
-  content += "<a href=\"https://github.com/juldebidour/P2I\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to my Github page</button></a>\n";
-  content += "<p>Visit the ENSC website for more informations :</p>\n";
-  content += "<a href=\"https://ensc.bordeaux-inp.fr/fr\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to the ENSC Website</button></a>\n";
-  content += "</div>\n";
   content += "</body>\n";
   content += "</html>\n";
+  String footer = "<footer style=\"background-color: #1e3d59; padding: 20px; text-align: center;\">"
+                  "<p><span style=\"color: white;\">Visit my Github page for more informations :</span></p>"
+                  "<a href=\"https://github.com/juldebidour/P2I\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to my Github page</button></a>"
+                  "<p><span style=\"color: white;\">Visit the ENSC website for more informations :</span></p>"
+                  "<a href=\"https://ensc.bordeaux-inp.fr/fr\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to the ENSC Website</button></a>"
+                  "</footer>\n";
+
+  content += footer;
 
   server.send(200, "text/html", content);
 }
@@ -528,8 +581,8 @@ void handleSpecifications() {
   content += "<a href=\"/data\" class=\"w3-bar-item w3-button\">Data</a>\n";
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button active\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
-  content += "<a href=\"/\" class=\"w3-bar-item w3-button w3-right-align\" style=\"color: white;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
-  content += "<a href=\"/login\" class=\"w3-bar-item w3-button w3-right-align\">Login</a>\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:128px 16px\">\n";
@@ -555,6 +608,8 @@ void handleSpecifications() {
                   "</footer>\n";
 
   content += footer;
+  content += "</body>\n";
+  content += "</html>\n";
   server.send(200, "text/html", content);
 }
 
@@ -642,13 +697,15 @@ void handleCodes() {
   content += "<pre><code>";
   // Insert the full code here
   content += "</code></pre>";
-  content += "</div></div></div></div>\n";
-  content += "<footer style=\"background-color: #1e3d59; padding: 20px; text-align: center; color: white;\">\n";
-  content += "<p>Visit my Github page for more information :</p>\n";
-  content += "<a href=\"https://github.com/juldebidour/P2I\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to my Github page</button></a>\n";
-  content += "<p>Visit the ENSC website for more information :</p>\n";
-  content += "<a href=\"https://ensc.bordeaux-inp.fr/fr\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to the ENSC Website</button></a>\n";
-  content += "</footer>\n";
+  content += "</ul></div></div></div></div></body></html>\n";
+  String footer = "<footer style=\"background-color: #1e3d59; padding: 20px; text-align: center;\">"
+                  "<p><span style=\"color: white;\">Visit my Github page for more informations :</span></p>"
+                  "<a href=\"https://github.com/juldebidour/P2I\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to my Github page</button></a>"
+                  "<p><span style=\"color: white;\">Visit the ENSC website for more informations :</span></p>"
+                  "<a href=\"https://ensc.bordeaux-inp.fr/fr\"><button style=\"padding: 10px 20px; background-color: #f5f0e1; color: black; border: none; cursor: pointer; border-radius: 5px;\">Link to the ENSC Website</button></a>"
+                  "</footer>\n";
+
+  content += footer;
   content += "</body>\n";
   content += "</html>\n";
 
@@ -664,9 +721,19 @@ void setup() {
 
   sds011.begin(SDS_PIN_RX, SDS_PIN_TX);
 
+  pinMode(Pin_D1,OUTPUT);
+  pinMode(Pin_D2,OUTPUT);
+
   // Initialize BME280 sensor
   if (!bme.begin(0x76)) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
+
+  // Initialisation du module RTC DS3231
+    if (!rtc.begin()) {
+        Serial.println("Couldn't find RTC");
+        while (1);
+    }
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
 
   // Définir les routes du serveur
@@ -682,7 +749,29 @@ void setup() {
   Serial.println("HTTP server started");
 }
 
+int analogRead1() {
+    digitalWrite(Pin_D1, HIGH); // Turn D1 On
+    digitalWrite(Pin_D2, LOW); // Turn D2 Off
+    return analogRead(0);
+}
+ 
+int analogRead2() {
+    digitalWrite(Pin_D1, LOW); //  Turn D1 On
+    digitalWrite(Pin_D2, HIGH); // Turn D2 Off
+    return analogRead(0);
+}
+
 void loop() {
+  readD1 = analogRead1(); // Read Analog value of first sensor
+  delay(200);
+  readD2 = analogRead2(); // Read Analog value of second sensor
+  // Lire l'heure actuelle du module RTC
+    DateTime now = rtc.now();
+
+  // Construire la chaîne représentant l'heure actuelle
+  String timeString = String(now.hour()) + ":" + 
+                      String(now.minute()) + ":" + 
+                      String(now.second());
   // Gérer les requêtes client
   server.handleClient();
 }
