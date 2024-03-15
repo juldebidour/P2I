@@ -49,7 +49,22 @@ String username = "one";
 
 RTC_DS3231 rtc;
 
+
+
 void handleRoot() {
+  // Lire l'heure actuelle du module RTC
+  DateTime now = rtc.now();
+
+  // Construire la chaîne représentant l'heure actuelle avec les secondes
+  String timeString = String(now.hour()) + ":" + 
+                      String(now.minute()) + ":" + 
+                      String(now.second());
+
+  // Construire la chaîne représentant la date actuelle
+  String dateString = String(now.day()) + "/" + 
+                      String(now.month()) + "/" + 
+                      String(now.year());
+
   String content = "<html>\n";
   content += "<head>\n";
   content += "<title>The Airpure Project</title>\n";
@@ -108,21 +123,19 @@ void handleRoot() {
   content += "    x.style.display = 'none';\n";
   content += "  }\n";
   content += "}\n";
-  content += "</script>\n";
-  // Ajouter la fonction pour mettre à jour l'heure
   content += "function updateTime() {\n";
   content += "  var currentTime = new Date();\n";
   content += "  var hours = currentTime.getHours();\n";
   content += "  var minutes = currentTime.getMinutes();\n";
-  content += "  var timeString = hours + ':' + (minutes < 10 ? '0' : '') + minutes;\n";
+  content += "  var seconds = currentTime.getSeconds();\n";
+  content += "  var timeString = hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;\n";
   content += "  document.getElementById('current-time').innerText = timeString;\n";
   content += "  setTimeout(updateTime, 1000); // Mettre à jour chaque seconde\n";
   content += "}\n";
-  // Appeler la fonction pour mettre à jour l'heure au chargement de la page
   content += "window.onload = function() {\n";
   content += "  updateTime();\n";
   content += "}\n";
-  content += "</script>\n";
+  content += "</script>\n"; // Fermez correctement la balise script ici
   content += "</head>\n";
   content += "<body>\n";
   content += "<div class=\"w3-top\">\n";
@@ -133,9 +146,9 @@ void handleRoot() {
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
   content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   // Ajouter la balise span pour afficher l'heure
   content += "<span id=\"current-time\" class=\"w3-bar-item\" style=\"color: white; float: right; padding: 14px 16px;\"></span>\n";
-  content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:32px 16px\">\n";
   content += "<h1 class=\"w3-margin w3-xxlarge\">The Airpure Project</h1>\n";
@@ -158,7 +171,22 @@ void handleRoot() {
   server.send(200, "text/html", content);
 }
 
+
+
 void handleLogin() {
+  // Lire l'heure actuelle du module RTC
+  DateTime now = rtc.now();
+
+  // Construire la chaîne représentant l'heure actuelle avec les secondes
+  String timeString = String(now.hour()) + ":" + 
+                      String(now.minute()) + ":" + 
+                      String(now.second());
+
+  // Construire la chaîne représentant la date actuelle
+  String dateString = String(now.day()) + "/" + 
+                      String(now.month()) + "/" + 
+                      String(now.year());
+
   String content = "<html>\n";
   content += "<head>\n";
   content += "<title>The Airpure Project</title>\n";
@@ -217,6 +245,18 @@ void handleLogin() {
   content += "    x.style.display = 'none';\n";
   content += "  }\n";
   content += "}\n";
+  content += "function updateTime() {\n";
+  content += "  var currentTime = new Date();\n";
+  content += "  var hours = currentTime.getHours();\n";
+  content += "  var minutes = currentTime.getMinutes();\n";
+  content += "  var seconds = currentTime.getSeconds();\n";
+  content += "  var timeString = hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;\n";
+  content += "  document.getElementById('current-time').innerText = timeString;\n";
+  content += "  setTimeout(updateTime, 1000); // Mettre à jour chaque seconde\n";
+  content += "}\n";
+  content += "window.onload = function() {\n";
+  content += "  updateTime();\n";
+  content += "}\n";
   content += "</script>\n";
   content += "</head>\n";
   content += "<body>\n";
@@ -229,20 +269,8 @@ void handleLogin() {
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
   content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
   content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
-  content += "</div>\n";
-  content += "<script>\n";
-  content += "function updateUsername() {\n";
-  content += "  var usernameInput = document.getElementById('username');\n";
-  content += "  var newUsername = usernameInput.value;\n";
-  content += "  var welcomeMessage = document.getElementById('welcomeMessage');\n";
-  content += "  welcomeMessage.textContent = 'Welcome to our dear user ' + newUsername + ' !';\n";
-  content += "}\n";
-  content += "</script>\n";
-  content += "</head>\n";
-  content += "<body>\n";
-  content += "<div class=\"w3-top\">\n";
-  content += "<div class=\"w3-bar w3-card\">\n";
-  // Navigation bar...
+  // Ajouter la balise span pour afficher l'heure
+  content += "<span id=\"current-time\" class=\"w3-bar-item\" style=\"color: white; float: right; padding: 14px 16px;\">Current Time: " + timeString + "</span>\n";
   content += "</div>\n";
   content += "<div class=\"login-container\">\n";
   content += "<h2>Login page</h2>\n";
@@ -271,8 +299,8 @@ void handleLogin() {
 
 
 
-void handleWeather() {
 
+void handleWeather() {
   float p25, p10;
 
   // Read sensor data
@@ -286,19 +314,34 @@ void handleWeather() {
     Serial.println(F("Failed to read from DHT sensor!"));
     return;
   }
+  readD1 = analogRead1(); // Read Analog value of first sensor
+  delay(200);
+  readD2 = analogRead2(); // Read Analog value of second sensor
+  // Lire l'heure actuelle du module RTC
+  DateTime now = rtc.now();
 
-  //for first sensor                    
-  analog_lum = 10*readD1;       //Read Analog value of first sensor  
- 
-  digitalWrite(Pin_D1, LOW); 
-  digitalWrite(Pin_D2, HIGH);     //Turn D2 On
-  delay(100);  
+  // Construire la chaîne représentant l'heure actuelle avec les secondes
+  String timeString = String(now.hour()) + ":" +
+                      String(now.minute()) + ":" +
+                      String(now.second());
+
+  // Construire la chaîne représentant la date actuelle
+  String dateString = String(now.day()) + "/" +
+                      String(now.month()) + "/" +
+                      String(now.year());
+
+  //for first sensor
+  analog_lum = 10 * readD1; //Read Analog value of first sensor
+
+  digitalWrite(Pin_D1, LOW);
+  digitalWrite(Pin_D2, HIGH); //Turn D2 On
+  delay(100);
   float rzero = mq135_sensor.getRZero();
   float correctedRZero = mq135_sensor.getCorrectedRZero(temperature, humidity);
   float resistance = mq135_sensor.getResistance();
-  float ppm = 10*mq135_sensor.getPPM();
-  float correctedPPM = 10*mq135_sensor.getCorrectedPPM(temperature, humidity);          
-  delay(100); 
+  float ppm = 10 * mq135_sensor.getPPM();
+  float correctedPPM = 10 * mq135_sensor.getCorrectedPPM(temperature, humidity);
+  delay(100);
 
   String content = "<html>\n";
   content += "<head>\n";
@@ -349,6 +392,28 @@ void handleWeather() {
   content += "  color: white;\n";
   content += "}\n";
   content += "</style>\n";
+  content += "<script>\n";
+  content += "function showMoreInfo() {\n";
+  content += "  var x = document.getElementById('moreInfo');\n";
+  content += "  if (x.style.display === 'none') {\n";
+  content += "    x.style.display = 'block';\n";
+  content += "  } else {\n";
+  content += "    x.style.display = 'none';\n";
+  content += "  }\n";
+  content += "}\n";
+  content += "function updateTime() {\n";
+  content += "  var currentTime = new Date();\n";
+  content += "  var hours = currentTime.getHours();\n";
+  content += "  var minutes = currentTime.getMinutes();\n";
+  content += "  var seconds = currentTime.getSeconds();\n";
+  content += "  var timeString = hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;\n";
+  content += "  document.getElementById('current-time').innerText = timeString;\n";
+  content += "  setTimeout(updateTime, 1000); // Mettre à jour chaque seconde\n";
+  content += "}\n";
+  content += "window.onload = function() {\n";
+  content += "  updateTime();\n";
+  content += "}\n";
+  content += "</script>\n";
   content += "</head>\n";
   content += "<body>\n";
   content += "<div class=\"w3-top\">\n";
@@ -358,22 +423,25 @@ void handleWeather() {
   content += "<a href=\"/data\" class=\"w3-bar-item w3-button\">Data</a>\n";
   content += "<a href=\"/specifications\" class=\"w3-bar-item w3-button\">Specifications</a>\n";
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
-  content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
+  content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) + " !</a>\n";
   content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
+  // Ajouter la balise span pour afficher l'heure
+  content += "<span id=\"current-time\" class=\"w3-bar-item\" style=\"color: white; float: right; padding: 14px 16px;\">Current Time: " + timeString + "</span>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:32px 16px\">\n";
   content += "<h1 class=\"w3-margin w3-xxlarge\">The Airpure Weather Station</h1>\n";
   content += "<h2 class=\"w3-large w3-animate-left\">Current weather conditions in the air</h2>\n";
+  content += "<p> Date: " + dateString + " - Time: " + timeString + "</p>\n"; // Afficher la date et l'heure
   content += "<ul class=\"w3-ul w3-card-4\">\n";
   content += "<li class=\"w3-padding-16\"> \nQuantity of carbon dioxide (part per million) from the MQ-135 sensor :</li>\n\n";
   content += "<br><table border=\"<1\">\n";
   content += "<tr><td>Rzero</td><td>Resistance</td><td>PPM</td><td>Corrected PPM</td></tr>\n";
-  content += "<tr><td>" + String(rzero) + "</td><td>" + String(resistance) + "</td><td>" + String(ppm) + "</td><td>" + String(correctedPPM/3) + "</td></tr>\n";
+  content += "<tr><td>" + String(rzero) + "</td><td>" + String(resistance) + "</td><td>" + String(ppm) + "</td><td>" + String(correctedPPM / 3) + "</td></tr>\n";
   content += "</table>\n\n";
-  content += "<br><li class=\"w3-padding-16\"> Quantity of microparticles (lenght 2,5 micro-meters and 10 2,5 micro-meters) from the SDS-011 sensor :</li>\n\n";
+  content += "<br><li class=\"w3-padding-16\"> Quantity of microparticles (length 2.5 micro-meters and 10 2.5 micro-meters) from the SDS-011 sensor :</li>\n\n";
   content += "<br><table border=\"1\">\n";
-  content += "<tr><td>Lenght (micro-meters)</td><td>2,5 10 micro-meters</td><td>10 micro-meters</td></tr>\n";
+  content += "<tr><td>Length (micro-meters)</td><td>2.5 10 micro-meters</td><td>10 micro-meters</td></tr>\n";
   content += "<tr><td>Value</td><td>" + String(p25) + "</td><td>" + String(p10) + "</td></tr>\n";
   content += "</table>\n\n";
   content += "<br><li class=\"w3-padding-16\"> Level of luminosity from the photoresistor (LDR) :</li>\n\n";
@@ -381,7 +449,7 @@ void handleWeather() {
   content += "<tr><td>Port of the sensor</td><td>Luminosity (lux)</td></tr>\n";
   content += "<tr><td>" + String(capteur_lum) + "</td><td>" + String(analog_lum) + "</td></tr>\n";
   content += "</table>\n\n";
-  content += "<br><li class=\"w3-padding-16\"> Level of humidity, pressure, temperature and altitude from the BME-280</li>\n\n";
+  content += "<br><li class=\"w3-padding-16\"> Level of humidity, pressure, temperature, and altitude from the BME-280</li>\n\n";
   content += "<br><table border=\"1\">\n";
   content += "<tr><td>Humidity</td><td>Pressure</td><td>temperature</td><td>altitude</td></tr>\n";
   content += "<tr><td>" + String(humidity) + "</td><td>" + String(pressure) + "</td><td>" + String(temperature) + "</td><td>" + String(altitude) + "</td></tr>\n";
@@ -417,7 +485,21 @@ void handleWeather() {
   server.send(200, "text/html", content);
 }
 
+
 void handleData() {
+  // Lire l'heure actuelle du module RTC
+  DateTime now = rtc.now();
+
+  // Construire la chaîne représentant l'heure actuelle avec les secondes
+  String timeString = String(now.hour()) + ":" + 
+                      String(now.minute()) + ":" + 
+                      String(now.second());
+
+  // Construire la chaîne représentant la date actuelle
+  String dateString = String(now.day()) + "/" + 
+                      String(now.month()) + "/" + 
+                      String(now.year());
+
   String content = "<html><head><title>Data from the Airpure Station</title>\n";
   content += "<meta charset=\"UTF-8\">\n";
   content += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
@@ -429,6 +511,28 @@ void handleData() {
   content += ".w3-bar a:hover {background-color: #ddd; color: black;}";
   content += ".w3-bar a.active {background-color: #f5f0e1; color: black;}";
   content += "</style>\n";
+  content += "<script>\n";
+  content += "function showMoreInfo() {\n";
+  content += "  var x = document.getElementById('moreInfo');\n";
+  content += "  if (x.style.display === 'none') {\n";
+  content += "    x.style.display = 'block';\n";
+  content += "  } else {\n";
+  content += "    x.style.display = 'none';\n";
+  content += "  }\n";
+  content += "}\n";
+  content += "function updateTime() {\n";
+  content += "  var currentTime = new Date();\n";
+  content += "  var hours = currentTime.getHours();\n";
+  content += "  var minutes = currentTime.getMinutes();\n";
+  content += "  var seconds = currentTime.getSeconds();\n";
+  content += "  var timeString = hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;\n";
+  content += "  document.getElementById('current-time').innerText = timeString;\n";
+  content += "  setTimeout(updateTime, 1000); // Mettre à jour chaque seconde\n";
+  content += "}\n";
+  content += "window.onload = function() {\n";
+  content += "  updateTime();\n";
+  content += "}\n";
+  content += "</script>\n";
   content += "</head><body>\n";
   content += "<div class=\"w3-top\">\n";
   content += "<div class=\"w3-bar w3-card\">\n";
@@ -439,6 +543,8 @@ void handleData() {
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
   content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
   content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
+  // Ajouter la balise span pour afficher l'heure
+  content += "<span id=\"current-time\" class=\"w3-bar-item\" style=\"color: white; float: right; padding: 14px 16px;\">Current Time: " + timeString + "</span>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:128px 16px\">\n";
@@ -562,6 +668,19 @@ void handleData() {
 }
 
 void handleSpecifications() {
+  // Lire l'heure actuelle du module RTC
+  DateTime now = rtc.now();
+
+  // Construire la chaîne représentant l'heure actuelle avec les secondes
+  String timeString = String(now.hour()) + ":" + 
+                      String(now.minute()) + ":" + 
+                      String(now.second());
+
+  // Construire la chaîne représentant la date actuelle
+  String dateString = String(now.day()) + "/" + 
+                      String(now.month()) + "/" + 
+                      String(now.year());
+
   String content = "<html><head><title>Specifications of the Airpure Station</title>\n";
   content += "<meta charset=\"UTF-8\">\n";
   content += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
@@ -573,6 +692,28 @@ void handleSpecifications() {
   content += ".w3-bar a:hover {background-color: #ddd; color: black;}";
   content += ".w3-bar a.active {background-color: #f5f0e1; color: black;}";
   content += "</style>\n";
+  content += "<script>\n";
+  content += "function showMoreInfo() {\n";
+  content += "  var x = document.getElementById('moreInfo');\n";
+  content += "  if (x.style.display === 'none') {\n";
+  content += "    x.style.display = 'block';\n";
+  content += "  } else {\n";
+  content += "    x.style.display = 'none';\n";
+  content += "  }\n";
+  content += "}\n";
+  content += "function updateTime() {\n";
+  content += "  var currentTime = new Date();\n";
+  content += "  var hours = currentTime.getHours();\n";
+  content += "  var minutes = currentTime.getMinutes();\n";
+  content += "  var seconds = currentTime.getSeconds();\n";
+  content += "  var timeString = hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;\n";
+  content += "  document.getElementById('current-time').innerText = timeString;\n";
+  content += "  setTimeout(updateTime, 1000); // Mettre à jour chaque seconde\n";
+  content += "}\n";
+  content += "window.onload = function() {\n";
+  content += "  updateTime();\n";
+  content += "}\n";
+  content += "</script>\n";
   content += "</head><body>\n";
   content += "<div class=\"w3-top\">\n";
   content += "<div class=\"w3-bar w3-card\">\n";
@@ -583,6 +724,8 @@ void handleSpecifications() {
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button\">Codes</a>\n";
   content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
   content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
+  // Ajouter la balise span pour afficher l'heure
+  content += "<span id=\"current-time\" class=\"w3-bar-item\" style=\"color: white; float: right; padding: 14px 16px;\">Current Time: " + timeString + "</span>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:128px 16px\">\n";
@@ -614,6 +757,19 @@ void handleSpecifications() {
 }
 
 void handleCodes() {
+  // Lire l'heure actuelle du module RTC
+  DateTime now = rtc.now();
+
+  // Construire la chaîne représentant l'heure actuelle avec les secondes
+  String timeString = String(now.hour()) + ":" + 
+                      String(now.minute()) + ":" + 
+                      String(now.second());
+
+  // Construire la chaîne représentant la date actuelle
+  String dateString = String(now.day()) + "/" + 
+                      String(now.month()) + "/" + 
+                      String(now.year());
+
   String content = "<html>\n";
   content += "<head>\n";
   content += "<title>Codes of the Airpure Station</title>\n";
@@ -663,6 +819,26 @@ void handleCodes() {
   content += "    x.style.display = 'none';\n";
   content += "  }\n";
   content += "}\n";
+  content += "function showMoreInfo() {\n";
+  content += "  var x = document.getElementById('moreInfo');\n";
+  content += "  if (x.style.display === 'none') {\n";
+  content += "    x.style.display = 'block';\n";
+  content += "  } else {\n";
+  content += "    x.style.display = 'none';\n";
+  content += "  }\n";
+  content += "}\n";
+  content += "function updateTime() {\n";
+  content += "  var currentTime = new Date();\n";
+  content += "  var hours = currentTime.getHours();\n";
+  content += "  var minutes = currentTime.getMinutes();\n";
+  content += "  var seconds = currentTime.getSeconds();\n";
+  content += "  var timeString = hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;\n";
+  content += "  document.getElementById('current-time').innerText = timeString;\n";
+  content += "  setTimeout(updateTime, 1000); // Mettre à jour chaque seconde\n";
+  content += "}\n";
+  content += "window.onload = function() {\n";
+  content += "  updateTime();\n";
+  content += "}\n";
   content += "</script>\n";
   content += "</head>\n";
   content += "<body>\n";
@@ -675,6 +851,8 @@ void handleCodes() {
   content += "<a href=\"/codes\" class=\"w3-bar-item w3-button active\" onclick=\"toggleCode()\">Codes</a>\n";
   content += "<a href=\"/\" class=\"w3-bar-item w3-button\" style=\"color: white; float: right;\"> Welcome to our dear user " + String(username) +  " !</a>\n";
   content += "<a href=\"/login\" class=\"w3-bar-item w3-button\" style=\"float: right;\">Login</a>\n";
+  // Ajouter la balise span pour afficher l'heure
+  content += "<span id=\"current-time\" class=\"w3-bar-item\" style=\"color: white; float: right; padding: 14px 16px;\">Current Time: " + timeString + "</span>\n";
   content += "</div>\n";
   content += "</div>\n";
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:32px 16px\">\n";
@@ -731,7 +909,6 @@ void setup() {
   // Initialisation du module RTC DS3231
     if (!rtc.begin()) {
         Serial.println("Couldn't find RTC");
-        while (1);
     }
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
@@ -762,16 +939,6 @@ int analogRead2() {
 }
 
 void loop() {
-  readD1 = analogRead1(); // Read Analog value of first sensor
-  delay(200);
-  readD2 = analogRead2(); // Read Analog value of second sensor
-  // Lire l'heure actuelle du module RTC
-    DateTime now = rtc.now();
-
-  // Construire la chaîne représentant l'heure actuelle
-  String timeString = String(now.hour()) + ":" + 
-                      String(now.minute()) + ":" + 
-                      String(now.second());
   // Gérer les requêtes client
   server.handleClient();
 }
