@@ -1,30 +1,35 @@
+// Importation de toutes les bibliothques nécessaires.
+
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <MQ135.h>
-#include <Adafruit_BME280.h>
-#include <NovaSDS011.h>
+#include <Adafruit_BMP280.h>  
+#include <SDS011.h>
 #include <RTClib.h>
+#include "DHT.h"
 
-// Define your WiFi credentials
+// Nom et mot de passe WiFi
+
 const char *ssid = "Airpure Station";
 const char *password = "password";
 
-// Define pin for the buzzer
-#define BUZZER_PIN 8 // Use any available GPIO pin
+// Pin pour le buzzer
 
-#define SDS_PIN_RX 2
-#define SDS_PIN_TX 3
+#define BUZZER_PIN 8 
 
-NovaSDS011 sds011;
+// Pin pour le SDS011
+
+#define SDS_PIN_RX 3
+#define SDS_PIN_TX 1
+
+SDS011 sds011;
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
-Adafruit_BME280 bme; // I2C
-// Adafruit_BME280 bme(BME_CS); // hardware SPI
-// Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI
+// Pin pour le MQ-135
 
 #define PIN_MQ135 A0 // MQ135 Analog Input Pin
 
@@ -34,6 +39,8 @@ float temperature, humidity, seaLevel; // Temp and Humid floats, will be measure
 
 unsigned long delayTime;
 
+// Pin pour le LDR
+
 int capteur_lum = 0; // capteur branché sur le port 0
 int analog_lum; // valeur analogique envoyé par le capteur
 
@@ -42,15 +49,40 @@ int readD2;
 int Pin_D1 = 4;
 int Pin_D2 = 5;
 
-// Create an ESP8266WebServer object
+// Déclaration des listes pour stocker les données des capteurs LDR et MQ135
+
+#define MAX_DATA_POINTS 600 
+
+float lcrDataList[MAX_DATA_POINTS]; //  MAX_DATA_POINTS est le nombre maximum de points de données à stocker
+float mq135DataList[MAX_DATA_POINTS];
+
+// Déclarer un compteur pour suivre le nombre de points de données collectés
+
+int dataCounter = 0;
+
+unsigned long lastDataCollectionTime = 0;
+
+// créer un objet ESP8266WebServer 
 ESP8266WebServer server(80);
 
 String username = "one";
 
 RTC_DS3231 rtc;
 
+Adafruit_BMP280 bmp; 
+
+// Pin pour le capteur DHT
+
+#define DHTPIN 1     
+
+#define DHTTYPE DHT22   
+
+DHT dht(DHTPIN, DHTTYPE);
 
 
+// PAGES PRINCIPALES DE L'APPLICATION 
+
+//Page d'accueil
 void handleRoot() {
   // Lire l'heure actuelle du module RTC
   DateTime now = rtc.now();
@@ -135,7 +167,7 @@ void handleRoot() {
   content += "window.onload = function() {\n";
   content += "  updateTime();\n";
   content += "}\n";
-  content += "</script>\n"; // Fermez correctement la balise script ici
+  content += "</script>\n"; 
   content += "</head>\n";
   content += "<body>\n";
   content += "<div class=\"w3-top\">\n";
@@ -171,8 +203,7 @@ void handleRoot() {
   server.send(200, "text/html", content);
 }
 
-
-
+//Page de login
 void handleLogin() {
   // Lire l'heure actuelle du module RTC
   DateTime now = rtc.now();
@@ -297,23 +328,27 @@ void handleLogin() {
   server.send(200, "text/html", content);
 }
 
-
-
-
+//Page des données en direct
 void handleWeather() {
-  float p25, p10;
+
 
   // Read sensor data
-  float temperature = bme.readTemperature();
-  float humidity = bme.readHumidity();
-  float pressure = bme.readPressure() / 100.0F; // Convert pressure to hPa
-  float altitude = bme.readAltitude(seaLevel);
+  //float temperature = bmp.readTemperature();
+  // float pressure = bmp.readPressure() / 100.0F; // Convert pressure to hPa
+  // float altitude = bmp.readAltitude(seaLevel);
 
   // Check if any reads failed and exit early (to try again).
   if (isnan(humidity) || isnan(temperature)) {
     Serial.println(F("Failed to read from DHT sensor!"));
     return;
   }
+   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);
+
   readD1 = analogRead1(); // Read Analog value of first sensor
   delay(200);
   readD2 = analogRead2(); // Read Analog value of second sensor
@@ -415,6 +450,9 @@ void handleWeather() {
   content += "}\n";
   content += "</script>\n";
   content += "</head>\n";
+  // // Ajout des graphiques pour le capteur LCR et le capteur MQ135
+  // content += "<canvas id=\"lcrChart\" width=\"400\" height=\"200\"></canvas>\n";
+  // content += "<canvas id=\"mq135Chart\" width=\"400\" height=\"200\"></canvas>\n";
   content += "<body>\n";
   content += "<div class=\"w3-top\">\n";
   content += "<div class=\"w3-bar w3-card\">\n";
@@ -432,7 +470,7 @@ void handleWeather() {
   content += "<header class=\"w3-container w3-red w3-center\" style=\"padding:32px 16px\">\n";
   content += "<h1 class=\"w3-margin w3-xxlarge\">The Airpure Weather Station</h1>\n";
   content += "<h2 class=\"w3-large w3-animate-left\">Current weather conditions in the air</h2>\n";
-  content += "<p> Date: " + dateString + " - Time: " + timeString + "</p>\n"; // Afficher la date et l'heure
+  content += "<p> Date: " + String(now.day()) + "/" + String(now.month()) + "/" + String(now.year()) + " - Time: " + timeString + "</p>\n"; // Afficher la date et l'heure
   content += "<ul class=\"w3-ul w3-card-4\">\n";
   content += "<li class=\"w3-padding-16\"> \nQuantity of carbon dioxide (part per million) from the MQ-135 sensor :</li>\n\n";
   content += "<br><table border=\"<1\">\n";
@@ -441,8 +479,8 @@ void handleWeather() {
   content += "</table>\n\n";
   content += "<br><li class=\"w3-padding-16\"> Quantity of microparticles (length 2.5 micro-meters and 10 2.5 micro-meters) from the SDS-011 sensor :</li>\n\n";
   content += "<br><table border=\"1\">\n";
-  content += "<tr><td>Length (micro-meters)</td><td>2.5 10 micro-meters</td><td>10 micro-meters</td></tr>\n";
-  content += "<tr><td>Value</td><td>" + String(p25) + "</td><td>" + String(p10) + "</td></tr>\n";
+  content += "<tr><td>Length (micro-meters)</td><td>2.5 micro-meters</td><td>10 micro-meters</td></tr>\n";
+  // content += "<tr><td>Value</td><td>" + String(pm25Value, 1) + "</td><td>" + String(pm10Value, 1) + "</td></tr>\n";
   content += "</table>\n\n";
   content += "<br><li class=\"w3-padding-16\"> Level of luminosity from the photoresistor (LDR) :</li>\n\n";
   content += "<br><table border=\"1\">\n";
@@ -452,25 +490,85 @@ void handleWeather() {
   content += "<br><li class=\"w3-padding-16\"> Level of humidity, pressure, temperature, and altitude from the BME-280</li>\n\n";
   content += "<br><table border=\"1\">\n";
   content += "<tr><td>Humidity</td><td>Pressure</td><td>temperature</td><td>altitude</td></tr>\n";
-  content += "<tr><td>" + String(humidity) + "</td><td>" + String(pressure) + "</td><td>" + String(temperature) + "</td><td>" + String(altitude) + "</td></tr>\n";
+  content += "<tr><td>" + String(h) + "</td><td>" + String(f) + "</td><td>" + String(t) + "</td><td>" + String(f) + "</td></tr>\n";
   content += "</table>\n\n";
   content += "</ul>\n";
   content += "</header>\n";
   content += "<div class=\"weather-container\">\n";
   content += "<div class=\"weather-info\">\n";
   content += "<h2>Real-time Data :</h2>\n";
-  content += "<canvas id=\"realtime-chart\" width=\"400\" height=\"400\"></canvas>\n";
-  content += "<script>\n";
-  content += "var ctx = document.getElementById('realtime-chart').getContext('2d');\n";
-  content += "var chart = new Chart(ctx, {\n";
-  content += "  type: 'bar',\n";
-  content += "  data: {\n";
-  content += "    labels: ['Temperature', 'Humidity', 'Pressure'],\n";
-  content += "    datasets: [{\n";
-  content += "      label: 'Real-time Data',\n";
-  // content += "      data: [" + String(temperature) + ", " + String(humidity) + ", " + String(pressure) + "],\n";
-  content += "</div>\n";
-  content += "</div>\n";
+  //   content += "<canvas id=\"realtime-chart\" width=\"400\" height=\"400\"></canvas>\n";
+  //   // Code pour initialiser le graphique LCR avec Chart.js
+  //   content += "var mq135Data = {\n";
+  //   content += "  labels: [...], // Les étiquettes pour l'axe des x\n";
+  //   content += "  datasets: [{\n";
+  //   content += "    label: 'MQ135 Data',\n";
+  //   content += "    data: [...], // Les données pour le capteur MQ135\n";
+  //   content += "    borderColor: 'rgb(75, 192, 192)',\n";
+  //   content += "    tension: 0.1\n";
+  //   content += "  }]\n";
+  //   content += "};\n";
+  //   // Code pour initialiser le graphique MQ135 avec Chart.js
+  //   content += "var lcrCtx = document.getElementById('lcrChart').getContext('2d');\n";
+  //   content += "var lcrChart = new Chart(lcrCtx, {\n";
+  //   content += "  type: 'line',\n";
+  //   content += "  data: lcrData\n";
+  //   content += "});\n";
+  //   content += "var mq135Ctx = document.getElementById('mq135Chart').getContext('2d');\n";
+  //   content += "var mq135Chart = new Chart(mq135Ctx, {\n";
+  //   content += "  type: 'line',\n";
+  //   content += "  data: mq135Data\n";
+  //   content += "});\n";
+  //   content += "</script>\n";
+  //   content += "</div>\n";
+  //   content += "</div>\n";
+  //   content += "<script>\n";
+  // content += "function updateCharts() {\n";
+  // content += "  lcrChart.data.datasets[0].data = ["; // Insérer les données du capteur LCR
+  // for (int i = 0; i < MAX_DATA_POINTS; i++) {
+  //     content += String(lcrDataList[i]);
+  //     if (i < MAX_DATA_POINTS - 1) {
+  //         content += ", ";
+  //     }
+  // }
+  // content += "];\n";
+  // content += "  lcrChart.update();\n";
+  // content += "  mq135Chart.data.datasets[0].data = ["; // Insérer les données du capteur MQ135
+  // for (int i = 0; i < MAX_DATA_POINTS; i++) {
+  //     content += String(mq135DataList[i]);
+  //     if (i < MAX_DATA_POINTS - 1) {
+  //         content += ", ";
+  //     }
+  // }
+  // content += "];\n";
+  // content += "  mq135Chart.update();\n";
+  // content += "}\n";
+  // content += "</script>\n";
+
+  // // Appeler la fonction updateCharts() pour mettre à jour les graphiques
+  // content += "<script>\n";
+  // content += "updateCharts();\n";
+  // content += "setInterval(updateCharts, 500);\n"; // Mettre à jour les graphiques toutes les demi-secondes
+  // content += "</script>\n";
+  //   content += "<script>\n";
+  //   content += "var ctx = document.getElementById('realtime-chart').getContext('2d');\n";  
+  //   content += "var chart = new Chart(ctx, {\n";
+  //   content += "  type: 'bar',\n";
+  //   content += "  data: {\n";
+  //   content += "    labels: ['Temperature', 'Humidity', 'Pressure'],\n";
+  //   content += "    datasets: [{\n";
+  //   content += "      label: 'Real-time Data',\n";
+  //   // Code JavaScript pour générer les graphiques
+  //   content += "<script>\n";
+  //   content += "var lcrData = {\n";
+  //   content += "  labels: [...], // Les étiquettes pour l'axe des x\n";
+  //   content += "  datasets: [{\n";
+  //   content += "    label: 'LCR Data',\n";
+  //   content += "    data: [...], // Les données pour le capteur LCR\n";
+  //   content += "    borderColor: 'rgb(255, 99, 132)',\n";
+  //   content += "    tension: 0.1\n";
+  //   content += "  }]\n";
+  //   content += "};\n";
   content += "</body>\n";
   content += "</html>\n";
   String footer = "<footer style=\"background-color: #1e3d59; padding: 20px; text-align: center;\">"
@@ -485,7 +583,7 @@ void handleWeather() {
   server.send(200, "text/html", content);
 }
 
-
+//Page de précision sur les intervalles de données
 void handleData() {
   // Lire l'heure actuelle du module RTC
   DateTime now = rtc.now();
@@ -667,6 +765,7 @@ void handleData() {
   server.send(200, "text/html", content);
 }
 
+//Page contenant le cahier des charges
 void handleSpecifications() {
   // Lire l'heure actuelle du module RTC
   DateTime now = rtc.now();
@@ -756,6 +855,7 @@ void handleSpecifications() {
   server.send(200, "text/html", content);
 }
 
+//Page contenant une synthèse du code 
 void handleCodes() {
   // Lire l'heure actuelle du module RTC
   DateTime now = rtc.now();
@@ -871,9 +971,9 @@ void handleCodes() {
   content += "<li class=\"w3-padding-16\"> Creation of dynamic web pages with HTML, CSS, and JavaScript for data visualization</li>\n";
   content += "</ul>\n";
   content += "<h2>Full Code :</h2>\n";
-  // Insert the full code here
+  // Code à insérer
   content += "<pre><code>";
-  // Insert the full code here
+  // Code à insérer
   content += "</code></pre>";
   content += "</ul></div></div></div></div></body></html>\n";
   String footer = "<footer style=\"background-color: #1e3d59; padding: 20px; text-align: center;\">"
@@ -890,6 +990,8 @@ void handleCodes() {
   server.send(200, "text/html", content);
 }
 
+// FONCTION SETUP
+
 void setup() {
   Serial.begin(115200);
 
@@ -897,14 +999,14 @@ void setup() {
   WiFi.softAP(ssid, password);
   Serial.println("WiFi AP Started");
 
-  sds011.begin(SDS_PIN_RX, SDS_PIN_TX);
-
   pinMode(Pin_D1,OUTPUT);
   pinMode(Pin_D2,OUTPUT);
 
   // Initialize BME280 sensor
-  if (!bme.begin(0x76)) {
-    Serial.println("Could not find a valid BME280 sensor, check wiring!");
+  if (!bmp.begin(0x76)) {
+    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+
+  dht.begin();
 
   // Initialisation du module RTC DS3231
     if (!rtc.begin()) {
@@ -926,6 +1028,8 @@ void setup() {
   Serial.println("HTTP server started");
 }
 
+// Fonction permettant la lecture de plusieurs capteurs analogiques malgré l'unique pin d'entrée A0
+
 int analogRead1() {
     digitalWrite(Pin_D1, HIGH); // Turn D1 On
     digitalWrite(Pin_D2, LOW); // Turn D2 Off
@@ -938,7 +1042,49 @@ int analogRead2() {
     return analogRead(0);
 }
 
+// Fonction de lecture des données (listes)
+
+float lireDonneesLCR() {
+    // Code pour lire les données du capteur LCR
+    // Remplacez ce commentaire par votre propre code pour lire les données du capteur LCR
+    // Par exemple :
+    float lcrData = analog_lum; // Lire la valeur analogique du capteur LCR
+    return lcrData;
+}
+
+float lireDonneesMQ135() {
+    // Code pour lire les données du capteur MQ135
+    // Remplacez ce commentaire par votre propre code pour lire les données du capteur MQ135
+    // Par exemple :
+    float mq135Data = 10 * mq135_sensor.getCorrectedPPM(temperature, humidity) / 3; // Lire la valeur analogique du capteur MQ135
+    return mq135Data;
+}
+
+// FONCTION LOOP
+
 void loop() {
+  // // Collecter les données des capteurs LCR et MQ135 toutes les demi-secondes
+  //   if (millis() - lastDataCollectionTime >= 500) {
+  //       // Lire les données des capteurs LCR et MQ135
+  //       float lcrData = lireDonneesLCR();
+  //       float mq135Data = lireDonneesMQ135();
+
+  //       // Stocker les données dans les listes
+  //       lcrDataList[dataCounter] = lcrData;
+  //       mq135DataList[dataCounter] = mq135Data;
+
+  //       // Incrémenter le compteur de données
+  //       dataCounter++;
+
+  //       // Réinitialiser le compteur si nécessaire
+  //       if (dataCounter >= MAX_DATA_POINTS) {
+  //           dataCounter = 0;
+  //       }
+
+  //       // Mettre à jour le temps de la dernière collecte de données
+  //       lastDataCollectionTime = millis();
+  //   }
+
   // Gérer les requêtes client
-  server.handleClient();
+  server.handleClient();  
 }
